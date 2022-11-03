@@ -69,7 +69,7 @@ d["tend"] = endtime
 d["write_maps_times"] = collect(starttime:3600:endtime)                          # Time at which data should be written to netcdf
 d["write_maps"] = true
 use2d3d = "3D"
-d["write_maps_filename"] = "netcdf_diffusie_drifter$(drifternumber)_$(use2d3d).nc"       # Save data in NetCDF file
+d["write_maps_filename"] = "netcdf_diffusive_drifter$(drifternumber)_$(use2d3d).nc"       # Save data in NetCDF file
 d["write_maps_dir"] = "netcdf_output"
 
 ###### Plot maps ######

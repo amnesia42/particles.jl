@@ -1,9 +1,14 @@
+import Pkg
+using Pkg
+Pkg.instantiate()
+Pkg.activate("..")
+Pkg.add("Particles")
 using Particles
 using Plots
 
 include(joinpath(@__DIR__, "drifterfunctions.jl"))
-
-usage = "Usage: julia --project case_drifters_german_bight/fews.jl /path/to/config.toml|csv"
+#usage = "Usage: julia --project case_drifters_german_bight/fews.jl /path/to/config.toml|csv"
+usage = "Usage: julia --project case_drifters_german_bight/fews.jl I:/Master_Thesis/particles.jl/Project.toml|csv"
 n = length(ARGS)
 if n != 1
     throw(ArgumentError(usage))

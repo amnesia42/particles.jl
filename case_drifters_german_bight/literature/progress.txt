@@ -1,0 +1,12 @@
+22.10.27
+understand the setting of the drifter experiment
+understand the two-step iteration: balanced newton-second law and the effect of random drifter
+	the effect of diffusion displace itself in the diffusion coefficient
+establish project environment in the root directory of the project and start working in the sub-directory
+program 
+to-do-list: 
+	keep playing around with the code; 
+	know more about how to make updates with the normally distributed displacement;
+	read other reports;
+Attention:
+	find out the points to improve in the reports; 
