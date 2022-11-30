@@ -10,3 +10,26 @@ to-do-list:
 	read other reports;
 Attention:
 	find out the points to improve in the reports; 
+
+22.11.03
+Discuss N. Scheijen's bachelor thesis; under the equivalence of advection-diffusion equ and the Fokker-Planck equ
+Get to know sth about lock exchange flow.
+
+I played around the code "run_simulation.jl" and fixed many bugs, environment variable, parse arguments using commandline, solving the problem of importing a julia package. I also learnt how to read and write NetCDF file using Julia. 
+Attention
+Keep on learning about Julia basics, especially how to manipulate arrays and some othe features.
+	follow the github page and also the course on Julia website.
+
+to-do-list:
+	adapt N. Scheijen's code to 3D test case
+	collect data about lock exchange flow
+
+22.11.11
+reproduce the result about eddy velocity field in Nelleke's work
+
+H=50, L=2H; c=d=pi/50
+
+22.11.24
+visualiazaition; track similar particles as Nelleke did 
+visualize the 3D flow field; formulate the whole 3D problem
+

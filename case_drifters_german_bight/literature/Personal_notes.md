@@ -58,3 +58,14 @@ julia> filepath = joinpath(@__DIR__, filename)
 "I:\\Master_Thesis\\particles.jl\\case_drifters_german_bight\\data\\dcsm-fm_201703\\DCSM-FM_05nm_0001_map.nc"
 
 julia> ncinfo(filename)
+
+22.11.30
+Julia Basicsl
+Ch2
+Package storage directory; how to generate a project, activate a project environment and import a project
+Package environment: project file & project entries file
+Ch3
+variable is a identifier that connects to a value at the storate; only value has a type; the type is determined during compilation.
+type comment and claim and isafunction
+Ch4
+type trees, Son:< Mother; type Any and type Union{}
