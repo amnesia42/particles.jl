@@ -1,29 +1,14 @@
 using Particles
 using Plots
-include("drifterfunctions.jl")
-
-drifternumber = 4;
 
 d=default_userdata()
 n=10 #number of particles
 
 d["nparticles"]=n
-d["coordinates"]="spherical"
-d["bbox"] = [6.0,53.5,9.1,55.5]                                                 # Where we expect particles
 d["plot_maps_size"] = (1500, 1000)
 d["time_direction"] = :forwards # :forwards or :backwards
 
-
-# Use different data directories, depending on the drifternumber and water_3d
-# Drifter 1-4 are in the period of march/april of 2017, thus dflow and matroos data of this period should be used
-# Drifter 5-7 are in the period of october of 2017. The data for this run is currently not available here.
-if drifternumber >= 5
-   datadir = "data/dcsm-fm_201710"
-else
-   datadir = "data/dcsm-fm_201703"
-end
-
-dflow_map = load_nc_info(datadir, r"DCSM-FM_05nm_...._map.nc")
+dflow_map = load_nc_info(datadir, r"locxx_map.nc")
 interp = load_dflow_grid(dflow_map, 50, true)
 
 drifter = drifterdata(drifternumber)                                             # Retrieve data of the drifter
@@ -90,8 +75,11 @@ function plot_background(d)
    plot_bbox = d["bbox"]
    img = d["background_image"]
    f = plot_image(img, plot_bbox)
-   f = plot!(xaxis=("Longitude \n ", (plot_bbox[1], plot_bbox[3]), font(30)), yaxis=(" \n Latitude", (plot_bbox[2], plot_bbox[4]), font(30)), legend=:topleft, legendfont=font(20), titlefontsize=25)
-   f = plot!(convert(Array{Float64}, drifter[:,3]), convert(Array{Float64}, drifter[:,2]), linecolor=:black, legend=false)    # Plot track of drifter
+   f = begin plot!(xaxis=("Longitude \n ", (plot_bbox[1], plot_bbox[3]), font(30)), 
+       yaxis=(" \n Latitude", (plot_bbox[2], plot_bbox[4]), font(30)), legend=:topleft, 
+       legendfont=font(20), titlefontsize=25) end
+   f = begin plot!(convert(Array{Float64}, drifter[:,3]), convert(Array{Float64}, 
+       drifter[:,2]), linecolor=:black, legend=false) end    # Plot track of drifter
    return(f)
 end
 d["plot_maps_background"] = plot_background
