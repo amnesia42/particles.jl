@@ -6,3 +6,4 @@ deps/deps.jl
 *.mem
 *.nc
 sicong
+case_drifters_german_bight/data_extract_test.ipynb
