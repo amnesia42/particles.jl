@@ -7,3 +7,6 @@ deps/deps.jl
 *.nc
 sicong
 case_drifters_german_bight/data_extract_test.ipynb
+case_lock_exchange/stdout.txt
+example_notebooks/stdout.txt
+*.gif
