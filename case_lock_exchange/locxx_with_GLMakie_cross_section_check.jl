@@ -146,7 +146,7 @@ function f1!(ds, s, t, i, d)
  d["f"]=f1!
 
  # use streamfunction as background for plotting
-function plot_vfield(d, t, plane; x_resolution=41, y_resolution=5, z_resolution=21, y_typical = 0.5)
+function plot_vfield(d, t, plane; x_resolution=41, y_resolution=21, z_resolution=21, y_typical = 0.5)
     # x_resolution=41 #[0,300]
     # y_resolution=5   #[0,1]
     # z_resolution=21   #[-10,0]
@@ -191,7 +191,7 @@ function plot_vfield(d, t, plane; x_resolution=41, y_resolution=5, z_resolution=
         arrows!(ys, zs, v_plot, w_plot, arrowsize=5, lengthscale=10,
                 arrowcolor = strength, linecolor=strength)
     end
-    return f,ax, u_plot
+    return f,ax
 end
 d["plot_vfield"] = plot_vfield 
 
@@ -210,29 +210,22 @@ function plot_particles(ax, d, p, plane)
 end
 
 # screenshot of particles
-function plot_screenshot(d; dirname="", fnametag="", y_typical=0.5)
+function plot_screenshot(d; dirname="", fnametag="", y_typical=0.5, plane="xz")
     t_plot = d["keep_particle_times"];
     p = d["all_particles"]; # because of "the use of keep_particles"
     for i in 1:length(t_plot)
-        plane = "xz"
         fname = dirname*"\\"*plane*"_screenshot_time"*"$(@sprintf("%.2f", t_plot[i]))"*".png"
-        fig, ax, ut = d["plot_vfield"](d, t_plot[i], plane; y_typical=y_typical)
-        if i==5 || i==11 || i==12
-            println("time=$(@sprintf("%.2f", t_plot[i]))")
-            println(maximum(abs.(ut)))
-        end
+        fig, ax = d["plot_vfield"](d, t_plot[i], plane; y_typical=y_typical)
         #ax = plot_particles(ax, d, p[i], plane)
-        #save(fname, fig)  
+        save(fname, fig)  
     end
 end
 
-
-
 open("stdout.txt","w") do io
     redirect_stdout(io) do
-        for y_typical in [0.125, 0.25, 0.375, 0.75]
+        for y_typical in [0.1, 0.2, 0.3, 0.4, 0.6, 0.8]
             println("y_typical=$y_typical")
-            dirname = "glmakie\\$y_typical y"
+            dirname = "vortex_search\\$y_typical y"
             if ~isdir(dirname)
                 mkdir(dirname)
             end
