@@ -23,7 +23,7 @@ Using the EraData struct the file-handling becomes object-oriented.
 mutable struct EraData
    file::NcFile
    #derived data
-   grid::CartesianGrid
+   grid::CartesianXYGrid
    """
    Constructor
    era_data = EraData(".","my_era_file.nc")
@@ -32,7 +32,7 @@ mutable struct EraData
       file=NetCDF.open(joinpath(path,filename))
       x=collect(file.vars["longitude"])
       y=collect(file.vars["latitude"])
-      grid=CartesianGrid(x,y,true)
+      grid=CartesianXYGrid(x,y,true)
       return new(file,grid)
    end
 end
@@ -48,10 +48,6 @@ function load_map_slice(data::EraData,varname,itime)
    dummy=data.file[varname].atts["missing_value"]
    if ndims==2
       tempvar=data.file[varname][:,:,itime]
-      if length(size(tempvar))>2 # Starting somewhere around julia version 1.3 dimensions are dropped automatically when slicing
-         # this check can be removed some time in the future, when we assumen versions less than 1.4 are no longer in use
-         tempvar=dropdims(tempvar,dims=3)
-      end
       var=offset.+scale_factor.*tempvar
       var[tempvar.==dummy].=NaN
       return var
@@ -71,7 +67,7 @@ function get_reftime(data::EraData)
    units=time_relative.atts["units"]
    temp=split(units,"since")
    temp2=split(temp[2],".")
-   println("ref date $(temp2[1])")
+   (debuglevel>=2) && println("ref date $(temp2[1])")
    t0=DateTime(strip(temp2[1]),"yyyy-mm-dd HH:MM:SS")
    dt_seconds=1.0
    if startswith(temp[1],"seconds")
@@ -106,7 +102,7 @@ function get_times(data::EraData,reftime::DateTime)
    units=time_relative.atts["units"]
    temp=split(units,"since")
    temp2=split(temp[2],".")
-   println("ref date $(temp2[1])")
+   (debuglevel>=2) && println("ref date $(temp2[1])")
    t0=DateTime(strip(temp2[1]),"yyyy-mm-dd HH:MM:SS")
    dt_seconds=1.0
    if startswith(temp[1],"seconds")
@@ -121,7 +117,7 @@ function get_times(data::EraData,reftime::DateTime)
       error("Invalid time-step unit in map-file.")
    end
    times=[]
-   for ti=1:length(time_relative)
+   for ti=eachindex(time_relative)
       push!(times,(0.001*Dates.value(t0-reftime))+time_relative[ti]*dt_seconds)
    end
    return times
