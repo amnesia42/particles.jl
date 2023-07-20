@@ -2,7 +2,7 @@
 
 julia_version = "1.9.2"
 manifest_format = "2.0"
-project_hash = "cc89774598d7e05325f22628cc56f797a74ff484"
+project_hash = "3d8564037c2018869b840d1a38f6697f73dcdc5c"
 
 [[deps.AWSCore]]
 deps = ["Base64", "Dates", "HTTP", "IniFile", "JSON", "LazyJSON", "MbedTLS", "Mocking", "OrderedCollections", "Retry", "Sockets", "SymDict", "UUIDs", "XMLDict"]
