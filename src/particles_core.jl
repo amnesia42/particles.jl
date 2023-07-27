@@ -133,7 +133,7 @@ function run_simulation(d)
     end
     print("interrupt simulation for output at t = ")
     print_times(tref, target_times)
-    println("Simulation from time $(t) s to $(tend) s since $(tref) since $(tref)")
+    println("Simulation from time $(t)s to $(tend)s since $(tref)")
     if d["time_direction"] == :forwards
         # nothing
     elseif d["time_direction"] == :backwards
@@ -149,6 +149,7 @@ function run_simulation(d)
             println("t=$(t) -> $(t_stop)  : $(t_abs) -> $(t_stop_abs) : $(round(100.0 * (tend - t_stop) / (tend - tstart), digits = 1))%")
         end
         t = simulate!(p, t, t_stop, d)
+        println("simulate! runs for once.")
         if (d["plot_maps"]) && (t_stop in plot_maps_times)
             (debuglevel > 1) && println("plotting map output")
             Plots.default(:size, d["plot_maps_size"])
@@ -202,6 +203,8 @@ Possibly using parameters (eg dt) from d of type userdata.
 function simulate!(p, t, t_stop, d)
     Δt = d["dt"]
     f! = d["f"]
+    # add a flow function g that accounts for the effect of particle drift due to diffusion
+    g! = d["g"]
     variables = d["variables"]
     (m, n) = size(p) # no variables x no particles
     ∂s = @LArray zeros(length(variables)) (:x, :y, :z, :t)
@@ -211,9 +214,11 @@ function simulate!(p, t, t_stop, d)
             #   (debuglevel >= 2) && println("... t=$(t) < $(t_stop)")
             for i = 1:n
                 s = @view p[:, i]
-                forward!(f!, Δt, ∂s, s, t, i, d)
+                #forward!(f!, Δt, ∂s, s, t, i, d)  # old code without drift term g
+                forward!(f!, g!, Δt, ∂s, s, t, i, d)
             end
             t += Δt
+
         end
     elseif d["time_direction"] == :backwards
         while (t > (t_stop + 0.25 * Δt))
@@ -239,6 +244,53 @@ function forward!(f!, Δt, ∂s, s, t, i, d)
     s .+= ∂s .* Δt
 end
 
+function forward!(f!, g!, Δt, ∂s, s, t, i, d)
+    if !d["if_keep_these_particles"][i]
+        # check if the ith particle is inside the computation domain
+        s.t = s.t + Δt
+    else
+        variables = d["variables"]
+        δs = @LArray zeros(length(variables)) (:x, :y, :z, :t)
+        ∂s_d = @LArray zeros(length(variables)) (:x, :y, :z, :t)
+        ∂s_s = @LArray zeros(length(variables)) (:x, :y, :z, :t)
+        s_temp = @LArray zeros(length(variables)) (:x, :y, :z, :t)
+
+        f!(∂s_d, s, t, i, d)
+        g!(∂s_s, s, t, i, d)
+        δs = ∂s_d .* Δt .+ ∂s_s .* sqrt(Δt) .* randn(d["rng"])
+
+        s_temp = s .+ δs
+        x_i, y_i, z_i, t_i= s_temp
+
+        
+        depth = d["depth"] # input x-location and return local depth      
+        if_next_inside_domain_zaxis = (z_i<=0) && (z_i+depth(x_i)>=0) 
+        if_next_inside_domain_yaxis = true
+        if_next_inside_domain_xaxis = true
+        if_next_inside_domain = if_next_inside_domain_zaxis && if_next_inside_domain_xaxis && if_next_inside_domain_yaxis
+
+        if d["if_apply_cross_bc_test"]
+            # record all virtual steps in the single-particle test
+            d["the_virtual_trajectory"] = hcat(d["the_virtual_trajectory"], reshape(s_temp, length(s_temp), 1))
+        end
+        
+        if if_next_inside_domain 
+            s .= s .+ δs
+        else
+            if !d["if_cross_bc"] 
+                # prevent the recursion algorithm with too many depths
+                if Δt < d["dt"]/2^d["recursion_depth"]
+                    s .= s .+ δs
+                    d["if_keep_these_particles"][i] = false
+                    return nothing
+                end             
+                forward!(f!, g!, Δt/2, ∂s, s, t, i, d)
+                forward!(f!, g!, Δt/2, ∂s, s, t, i, d)
+            end
+        end
+
+    end
+end
 
 
 """
@@ -284,7 +336,7 @@ end
 function plot_maps_xz(fig, d, p)
     x_index = index("x", d["variables"])
     z_index = index("z", d["variables"])
-    scatter!(fig, p[x_index, :], p[z_index, :], legend = false)
+    scatter!(fig, p[x_index, :], p[z_index, :], markercolor = :black, legend = false)
 end
 
 function initialize_netcdf_output(d)
