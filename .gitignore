@@ -12,3 +12,4 @@ example_notebooks/stdout.txt
 *.gif
 *.zarr
 Manifest.toml
+*.svg

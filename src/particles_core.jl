@@ -83,6 +83,9 @@ function run_simulation(d)
     end
 
     # initialize outputs
+    if d["is_apply_cross_bc_test"] && (d["nparticles"]==1)
+        d["the_virtual_trajectory"] = reshape(d["particles"], length(d["particles"]), 1)
+    end
     target_times = Float64[]
     if d["plot_maps"]
         # init timing
@@ -208,7 +211,6 @@ function simulate!(p, t, t_stop, d)
     variables = d["variables"]
     (m, n) = size(p) # no variables x no particles
     ∂s = @LArray zeros(length(variables)) (:x, :y, :z, :t)
-    # s = @MVector zeros(length(variables))
     if d["time_direction"] == :forwards
         while (t < (t_stop - 0.25 * Δt))
             #   (debuglevel >= 2) && println("... t=$(t) < $(t_stop)")
@@ -245,50 +247,54 @@ function forward!(f!, Δt, ∂s, s, t, i, d)
 end
 
 function forward!(f!, g!, Δt, ∂s, s, t, i, d)
-    if !d["if_keep_these_particles"][i]
-        # check if the ith particle is inside the computation domain
-        s.t = s.t + Δt
+    # check if the ith particle is inside the computation domain
+    if !d["is_keep_these_particles"][i]
+        # Case 4: the particle is already outside, and only t needs updating
+        # if it goes outside, only updating the time
+        s[4] = s[4] + Δt
     else
+        # preallocation
         variables = d["variables"]
         δs = @LArray zeros(length(variables)) (:x, :y, :z, :t)
         ∂s_d = @LArray zeros(length(variables)) (:x, :y, :z, :t)
         ∂s_s = @LArray zeros(length(variables)) (:x, :y, :z, :t)
         s_temp = @LArray zeros(length(variables)) (:x, :y, :z, :t)
 
+        # compute the deterministic and stochastic drift
         f!(∂s_d, s, t, i, d)
         g!(∂s_s, s, t, i, d)
         δs = ∂s_d .* Δt .+ ∂s_s .* sqrt(Δt) .* randn(d["rng"])
-
         s_temp = s .+ δs
-        x_i, y_i, z_i, t_i= s_temp
 
-        
-        depth = d["depth"] # input x-location and return local depth      
-        if_next_inside_domain_zaxis = (z_i<=0) && (z_i+depth(x_i)>=0) 
-        if_next_inside_domain_yaxis = true
-        if_next_inside_domain_xaxis = true
-        if_next_inside_domain = if_next_inside_domain_zaxis && if_next_inside_domain_xaxis && if_next_inside_domain_yaxis
+        # determine if the particle is inside the boundary
+        is_next_inside_domain = d["is_particle_in_domain"](s_temp)
 
-        if d["if_apply_cross_bc_test"]
+        if d["is_apply_cross_bc_test"] && d["is_keep_these_particles"][i]
             # record all virtual steps in the single-particle test
             d["the_virtual_trajectory"] = hcat(d["the_virtual_trajectory"], reshape(s_temp, length(s_temp), 1))
         end
         
-        if if_next_inside_domain 
+        if is_next_inside_domain
+            # Case 1: after virtual displacement, the particle is inside the domain
             s .= s .+ δs
-        else
-            if !d["if_cross_bc"] 
-                # prevent the recursion algorithm with too many depths
-                if Δt < d["dt"]/2^d["recursion_depth"]
-                    s .= s .+ δs
-                    d["if_keep_these_particles"][i] = false
-                    return nothing
-                end             
-                forward!(f!, g!, Δt/2, ∂s, s, t, i, d)
-                forward!(f!, g!, Δt/2, ∂s, s, t, i, d)
-            end
-        end
+        elseif !d["is_cross_bc"] && d["is_keep_these_particles"][i]
+            # Case 2: after virtual displacement, the particle is outside the domain, so halve dt is needed
+            # prevent the recursion algorithm with too many depths
+            if Δt < d["dt"]/2^d["recursion_depth"]
+            # Case 3: the dt is too small to be halved, so let the particle cross the boundary
+                s .= s .+ δs
+                d["is_keep_these_particles"][i] = false
+                return nothing
+            end             
+            forward!(f!, g!, Δt/2, ∂s, s, t, i, d)
+            forward!(f!, g!, Δt/2, ∂s, s, t, i, d)            
 
+        elseif d["is_keep_these_particles"][i]
+            # the particle leaves the boundary and stay there 
+            s .= s .+ δs
+            d["is_keep_these_particles"][i] = false
+            println("The $(i)th-particle leaves the boundary.")
+        end
     end
 end
 
