@@ -63,6 +63,10 @@ function run_simulation(d)
     p_all=d["all_particles"] #if requested keep particles at intermediate times
     Plots.default(:size, d["plot_maps_size"])
 
+    # preallocate storage for the current particle information
+    d["is_particles_active"] = falses(d["nparticles_bound"])
+    p = zeros(nvars, d["nparticles_bound"])
+
     # show inputs
     if debuglevel > 2
         println("configuration")
@@ -142,6 +146,8 @@ function run_simulation(d)
     elseif d["time_direction"] == :backwards
         target_times = sort(target_times, rev = true)
     end
+
+
     # simulate in pieces until next output-action
     for t_stop in target_times
         t_abs = tref + Second(round(t))
@@ -210,11 +216,18 @@ function simulate!(p, t, t_stop, d)
     g! = d["g"]
     variables = d["variables"]
     (m, n) = size(p) # no variables x no particles
+    N_activeparts = count(d["is_particles_active"])
+    println("The number of particle is $(N_activeparts).")
     ∂s = @LArray zeros(length(variables)) (:x, :y, :z, :t)
     if d["time_direction"] == :forwards
         while (t < (t_stop - 0.25 * Δt))
             #   (debuglevel >= 2) && println("... t=$(t) < $(t_stop)")
-            for i = 1:n
+
+            # add particles to or remove them from the field at appropritate times
+            # adding particles is achieved by activating them and modifying its coordinates
+            p, last_active_index = d["release_particles"](d, p, t)
+            for i in 1:last_active_index
+            # for i = 1:n # old code iterates through all particles
                 s = @view p[:, i]
                 #forward!(f!, Δt, ∂s, s, t, i, d)  # old code without drift term g
                 forward!(f!, g!, Δt, ∂s, s, t, i, d)
@@ -247,11 +260,12 @@ function forward!(f!, Δt, ∂s, s, t, i, d)
 end
 
 function forward!(f!, g!, Δt, ∂s, s, t, i, d)
-    # check if the ith particle is inside the computation domain
-    if !d["is_keep_these_particles"][i]
+    if !d["is_particles_active"][i] || !d["is_keep_these_particles"][i]
+        # check if the ith particle has been released or 
+        # if it moves out of the computation domain
+        # Case 5: the particle is not yet released into the domain 
         # Case 4: the particle is already outside, and only t needs updating
-        # if it goes outside, only updating the time
-        s[4] = s[4] + Δt
+        # do nothing
     else
         # preallocation
         variables = d["variables"]
@@ -293,7 +307,7 @@ function forward!(f!, g!, Δt, ∂s, s, t, i, d)
             # the particle leaves the boundary and stay there 
             s .= s .+ δs
             d["is_keep_these_particles"][i] = false
-            println("The $(i)th-particle leaves the boundary.")
+            println("The $(i)th-particle leaves the computation domain.")
         end
     end
 end
