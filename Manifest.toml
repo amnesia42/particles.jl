@@ -2,7 +2,7 @@
 
 julia_version = "1.9.2"
 manifest_format = "2.0"
-project_hash = "779fccbf975546a5321e51d25f04dd404f655466"
+project_hash = "7eba69feaa3c1174392c99faabfd78e912c2be9e"
 
 [[deps.AWSCore]]
 deps = ["Base64", "Dates", "HTTP", "IniFile", "JSON", "LazyJSON", "MbedTLS", "Mocking", "OrderedCollections", "Retry", "Sockets", "SymDict", "UUIDs", "XMLDict"]
@@ -728,6 +728,12 @@ deps = ["JSON", "OrderedCollections", "PropertyDicts"]
 git-tree-sha1 = "ce08411caa70e0c9e780f142f59debd89a971738"
 uuid = "fc18253b-5e1b-504c-a4a2-9ece4944c004"
 version = "0.2.2"
+
+[[deps.LegendrePolynomials]]
+deps = ["OffsetArrays", "SpecialFunctions"]
+git-tree-sha1 = "78e5288b179f2ae90ccbaa1799e9b0cb82ef5e04"
+uuid = "3db4a2ba-fc88-11e8-3e01-49c72059a882"
+version = "0.4.4"
 
 [[deps.LibCURL]]
 deps = ["LibCURL_jll", "MozillaCACerts_jll"]
