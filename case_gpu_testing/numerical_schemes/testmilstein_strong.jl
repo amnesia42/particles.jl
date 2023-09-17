@@ -15,7 +15,7 @@ for i in eachindex(Nlist)
         dW = randn(rng, Nrep) * sqrt(dt)
         W = W + dW
         S = S + dt*μ.*S  + σ*S.*dW + 0.5*σ^2*S .* (dW.*dW .- dt)
-    end   
+    end  
     Sanaly = S0 * ones(Nrep) .* exp.((μ - 0.5 * σ^2) * Tend .+ σ * W)
     L1error = sum(abs.(Sanaly- S )) / Nrep
     println("N=$N, L1error=$(L1error)")

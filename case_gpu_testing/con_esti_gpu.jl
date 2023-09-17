@@ -45,38 +45,40 @@ function gpu_compute_concentration_by_kernel(t,x_grid,Locparticles)
 end
 
 # concentration estimation parameter specification
-fname="end_distribution_pure_diffusion_dt=3.0e-05_tend=0.200000_Nparticles=100000.txt"
-dname="F:\\Master_Thesis\\particles model\\1D advection diffusion\\parabola_result"
-fname = joinpath(dname, fname)
+dt = 3e-5; z0=0.5; N = 1000000
+fname=@sprintf("./diffusion/z0=%.2f_N=%d_dt=%.2e.txt", z0, N, dt)
+#fname="end_distribution_pure_diffusion_dt=3.0e-05_tend=0.200000_Nparticles=100000.txt"
 # fname = blablabla #manually copy and paste
-data = readdlm(fname, ' ', Float64, '\n')
+data = readdlm(fname, '\t', Float64, '\n')
 layout = @layout([a  b])
 
 p = plot()
-dx = 0.01
-xs = 0:dx:1.0
 t_obs = [0.036, 0.072, 0.108, 0.1728]
 pdf_times = zeros(length(xs), length(t_obs))
 Nparticles = size(data, 1)
 if kernel_type=="box"
+    dx = 0.02
+    xs = 0:dx:1.0
     for i = 1:length(t_obs)
         ti = t_obs[i]
         d = data[:, i]
         h, bin_edges = np.histogram(d, bins=xs, density=true)
-        plot!(p, h, bin_edges[1:end-1] .+ dx/2, label="t=$ti")
+        plot!(p, h, bin_edges[1:end-1] .+ dx/2, linewidth=2, thickness_scaling=1,label="t=$ti", size=(600,600),dpi=300)
     end
 else
+    dx = 0.02
+    xs = 0:dx:1.0
     for i = 1:length(t_obs)
         ti = t_obs[i]
         d = data[:, i]
         #pdf_times[:, i] = compute_concentration_by_kernel(ti, xs, d; Kernel_type=kernel_type)
-        pdf_times[:, i] = gpu_compute_concentration_by_kernel(ti,xs,d; Kernel_type=kernel_type)
-        plot!(pdf_times[:, i], xs, label="t=$(ti)s", size=(600,600))
+        pdf_times[:, i] = gpu_compute_concentration_by_kernel(ti,xs,d)
+        plot!(pdf_times[:, i], xs, label="t=$(ti)s", linewidth=2, thickness_scaling=1, size=(600,600), dpi=300)
     end
 
 end
 xlabel!("concentration")
 ylabel!("location x")
 title!("kernel=$(kernel_type)")
-#savefig(p, "./case_gpu_tesing/figures/kernel=$(kernel_type)_Nparticles=$(Nparticles).png")
-savefig(p, "./figures/testgpu_kernel=$(kernel_type)_Nparticles=$(Nparticles).svg")
+figname=@sprintf("./diffusion/kernel=%s_z0=%.2f_N=%d_dt=%.2e.png", kernel_type,z0, N, dt)
+savefig(p, figname)
