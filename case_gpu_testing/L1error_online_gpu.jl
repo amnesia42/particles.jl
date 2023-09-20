@@ -81,7 +81,7 @@ function get_particles_snapshot(z0, N, scheme, dt, Tend, t_obs)
 end
 
 # concentration estimation parameter specification
-z0=0.5; N = 100000;Tend = 0.2;Nrep=100;scheme="RK4"
+z0=0.5; N = 100000;Tend = 0.2;Nrep=300;scheme="RK4"
 t_obs = [0.036, 0.072, 0.108, 0.144]
 dt_list = [3e-3,1e-3,3e-4, 1e-4, 3e-5]
 #t_obs = [0.036, 0.072, 0.108, 0.1728]

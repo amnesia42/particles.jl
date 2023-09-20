@@ -1,10 +1,10 @@
 using DelimitedFiles, Printf
 using Plots, LaTeXStrings
-fname_list=["L1error_scheme=euler_z0=0.50_N=100000_Nrep=300.txt", "L1error_scheme=heun_z0=0.50_N=100000_Nrep=300.txt","L1error_scheme=m1_z0=0.50_N=100000_Nrep=305.txt"]
-lgname_list = ["Euler", "Heun","M1"]
+fname_list=["L1error_scheme=euler_z0=0.50_N=100000_Nrep=300.txt", "L1error_scheme=heun_z0=0.50_N=100000_Nrep=300.txt","L1error_scheme=m1_z0=0.50_N=100000_Nrep=305.txt","L1error_scheme=RK4_z0=0.50_N=100000_Nrep=300.txt"]
+lgname_list = ["Euler", "Heun","M1","RK4"]
 dt_list = [3e-3,1e-3,3e-4, 1e-4, 3e-5] #
 t_obs = [0.036, 0.072, 0.108, 0.144]
-t_index=4
+t_index=1
 p2 = plot()
 for j=1:length(fname_list)
     fname = fname_list[j]
