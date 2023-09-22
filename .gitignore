@@ -13,3 +13,5 @@ example_notebooks/stdout.txt
 *.zarr
 Manifest.toml
 *.svg
+*.svg
+*.svg
