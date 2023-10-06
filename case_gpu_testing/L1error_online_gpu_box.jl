@@ -6,7 +6,7 @@ using LegendrePolynomials
 # Both work for a simple 1D example.
 # The bottleneck for this problem will be the grid points, because 100k particles is already a lot.
 # Try to wrap this into a function that inputs a particle distribution and outs a concentration approximation.
-kernel_type = "Epa" # "box", "Epa", "Gauss" if changed to "Gauss", remember to change in the Kernel_Estimator function in ConcentrationCalculationLibrary.jl
+kernel_type = "box" # "box", "Epa", "Gauss" if changed to "Gauss", remember to change in the Kernel_Estimator function in ConcentrationCalculationLibrary.jl
                     # This is a temporary solution because I don't know how to pass a static reference to the device memory. 
 scheme = "euler" # "euler", "m1", "heun","RK4" remember to change in the get_next_location function in ConcentrationCalculationLibrary.jl
 # This is a temporary solution because I don't know how to pass a static reference to the device memory. 
@@ -19,41 +19,6 @@ function gpukernel_time_stepping(p, dt; h=0.002)
         @inbounds p[k] = get_next_location(p[index], dt[1]; h=h)
     end
     return nothing
-end
-
-function gpu_compute_concentration_by_kernel(t,x_grid,Locparticles)
-    Nparticles = length(Locparticles)
-    x_avg = sum(Locparticles)/length(Locparticles)
-    x_delta = Locparticles .- x_avg
-    std_sample = sqrt(1/(Nparticles - 1)* dot(x_delta, x_delta))
-    bandwidth = std_sample * Nparticles^(-0.2)
-    @printf("Calculation of std_sample completed. std_sample=%.4f.\n",std_sample)
-    @printf("The bandwidth is %.4f\n",bandwidth)
-
-    # use the kernel method to compute the PDF
-    pdf_grid = similar(x_grid)
-    # copy data from cpu to gpu
-    cu_bandwidth = CuArray([bandwidth])
-    cu_x_grid = CuArray(x_grid)
-    cu_pdf_grid = CuArray(pdf_grid)
-    cu_Locparticles = CuArray(Locparticles)
-    numthreads = length(x_grid)  # This can be changed to length of a 3D grid if necessary.
-    numblocks = 1                # temporarily
-
-    # check the Kernel Estimator can be passes a bitstype variable
-    # println(isa(Kernel_Estimator, Function))
-    # println(isbitstype(Kernel_Estimator))
-
-    function gpu_kernel_estimator!(Kernel_Estimator, pdf_grid, x_grid,Locparticles, cu_bandwidth)
-        index = blockDim().x * (blockIdx().x - 1) + threadIdx().x
-        @inbounds pdf_grid[index] = Kernel_Estimator(x_grid[index], Locparticles, cu_bandwidth[1])
-        return nothing
-    end
-
-    CUDA.@time CUDA.@sync begin
-       @cuda threads=numthreads blocks=numblocks gpu_kernel_estimator!(Kernel_Estimator, cu_pdf_grid, cu_x_grid, cu_Locparticles, cu_bandwidth)
-    end
-    return bandwidth, Array(cu_pdf_grid)
 end
 
 function get_particles_snapshot(z0, N, scheme, dt, Tend, t_obs)
@@ -90,19 +55,20 @@ dt_list = [3e-3,1e-3, 3e-4, 1e-4, 3e-5, 1e-5, 3e-6]
 #dt_list = [3e-4,1e-4,3e-5,1e-5,3e-6]
 dx = 0.02
 xs = 0:dx:1.0
+xs_true = (0+dx/2.0):dx:(1.0-dx/2.0)
 error_output = zeros(length(dt_list), length(t_obs))
 bandwidth_output = zeros(length(dt_list), length(t_obs))
-pdf_output = zeros(length(dt_list), length(xs),length(t_obs))
-analpdf_times = zeros(length(xs), length(t_obs))
+pdf_output = zeros(length(dt_list), length(xs_true),length(t_obs))
+analpdf_times = zeros(length(xs_true), length(t_obs))
 Nparticles = N
 
 # compute analytical solution
 for j = 1:length(t_obs)
     t = t_obs[j]
-    for i=1:length(xs)
+    for i=1:length(xs_true)
         analpdf_times[i,j] = 0.
         for n=0:50
-            δC= (2*n+1)*Pl(2*xs[i]-1, n)*Pl(2*z0-1,n)*exp(-6*n*(n+1)*t)
+            δC= (2*n+1)*Pl(2*xs_true[i]-1, n)*Pl(2*z0-1,n)*exp(-6*n*(n+1)*t)
             analpdf_times[i,j] += δC
         end
     end
@@ -110,12 +76,13 @@ end
 
 for i=1:length(dt_list)
     dt=dt_list[i]
-    pdf_times = zeros(length(xs), length(t_obs))
+    pdf_times = zeros(length(xs_true), length(t_obs))
     data = get_particles_snapshot(z0, N, scheme, dt, Tend, t_obs)
     for k = 1:length(t_obs)
         ti = t_obs[k]
         d = data[:, k]
-        bandwidth_output[i,k], pdf_times[:, k] = gpu_compute_concentration_by_kernel(ti,xs,d)
+        pdf_times[:, k] += Box_Estimator(xs,d)
+        bandwidth_output[i,k] = get_bandwidth(d)
     end
     println("dt=",dt," computation finiished.")
     pdf_output[i,:,:] = pdf_times
@@ -136,13 +103,19 @@ end
 
 
 # output to result
-fname=@sprintf("./diffusion/error/L1error_scheme=%s_z0=%.2f_N=%d.txt", scheme, z0, N)
+fname=@sprintf("./diffusion/error/L1error_kernel=%s_scheme=%s_z0=%.2f_N=%d.txt", kernel_type,scheme, z0, N)
 open(fname, "w") do io
     writedlm(io, error_output)
 end
 
 # output to result
-fname=@sprintf("./diffusion/error/pdfoutput_scheme=%s_z0=%.2f_N=%d.txt", scheme, z0, N)
+fname=@sprintf("./diffusion/error/pdfoutput_kernel=%s_scheme=%s_z0=%.2f_N=%d.txt", kernel_type, scheme, z0, N)
 open(fname, "w") do io
     writedlm(io, pdf_output)
+end
+
+# output to result
+fname=@sprintf("./diffusion/error/bandwidthoutput_kernel=%s_scheme=%s_z0=%.2f_N=%d.txt", kernel_type, scheme, z0, N)
+open(fname, "w") do io
+    writedlm(io, bandwidth_output)
 end

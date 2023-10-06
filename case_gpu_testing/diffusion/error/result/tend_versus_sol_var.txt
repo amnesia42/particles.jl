@@ -1,0 +1,9 @@
+t_list = [0.036 0.072 0.108 0.144 0.180 0.216]
+Averaged distance between the computed profile and the uniform distribution(c=1).
+julia> include("diffusion_solution.jl")
+0.270125918999756
+0.07323075445963195
+0.02002854253074655
+0.005480170195201329
+0.0014995050360976205
+0.00041030069945739944

@@ -2,8 +2,8 @@ using CUDA, Test, BenchmarkTools
 using LinearAlgebra, SpecialFunctions
 using DelimitedFiles
 using Plots
-using PyCall, Printf
-np = pyimport("numpy")
+using Printf
+using StatsBase
 
 # diffusion functions not in a hurry
 function k(z)
@@ -105,13 +105,13 @@ function get_next_location(p, dt; h=0.002)
     end
 
     #if scheme=="euler"
-    #dp = get_Δx_euler(p)
+    dp = get_Δx_euler(p)
     #elseif scheme=="m1"
     #dp = get_Δx_m1(p)
     #elseif scheme == "heun"
     #dp = get_Δx_heun(p)
     #elseif scheme == "RK4"
-    dp = get_Δx_RK4(p)
+    #dp = get_Δx_RK4(p)
     #end
     if p+dp>1 || p+dp<0
         p = get_next_location(p, 0.5*dt)
@@ -119,6 +119,20 @@ function get_next_location(p, dt; h=0.002)
     else
         return p+dp
     end
+end
+
+function get_bandwidth(Locparticles)
+    Nparticles = length(Locparticles)
+    x_avg = sum(Locparticles)/length(Locparticles)
+    x_delta = Locparticles .- x_avg
+    std_sample = sqrt(1/(Nparticles - 1)* dot(x_delta, x_delta))
+    bandwidth = std_sample * Nparticles^(-0.2)
+    return bandwidth
+end
+
+function Box_Estimator(xgrid, Locparticles)
+    hist = fit(Histogram, Locparticles, xgrid)
+    return hist.weights ./ length(Locparticles)
 end
 
 # kernel estimator using the reflection method to have order-1 consistency
