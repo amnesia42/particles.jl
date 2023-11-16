@@ -61,10 +61,10 @@ function run_simulation(d)
     nvars = length(vars)
     p = d["particles"]
     p_all=d["all_particles"] #if requested keep particles at intermediate times
+    d["particles_indices"] = []
     Plots.default(:size, d["plot_maps_size"])
 
     # preallocate storage for the current particle information
-    d["is_particles_active"] = falses(d["nparticles_bound"])
     p = zeros(nvars, d["nparticles_bound"])
 
     # show inputs
@@ -187,7 +187,11 @@ function run_simulation(d)
             end
         end
         if (d["keep_particles"]) && (t_stop in keep_particle_times)
-            push!(p_all,copy(p))
+            # share a reference to d["all_particles"], which is accessible by the user
+            # create a collection where each element includes particle information at that time instant
+            indices = findall(d["isactive_particles"])
+            push!(d["particles_indices"], copy(indices))
+            push!(p_all,copy(p[:,indices])) 
         end
     end
 
@@ -216,24 +220,33 @@ function simulate!(p, t, t_stop, d)
     g! = d["g"]
     variables = d["variables"]
     (m, n) = size(p) # no variables x no particles
-    N_activeparts = count(d["is_particles_active"])
-    println("The number of particle is $(N_activeparts).")
+    N_activeparts = count(d["isactive_particles"])
+    println("Before this updating, the number of active particle is $(N_activeparts).")
+    N_releaseparts = count(p[4,:] .> 1e-10) # count the number of particles that has been released
+    println("Before this updating, the number of released particles is $(N_releaseparts)")
     ∂s = @LArray zeros(length(variables)) (:x, :y, :z, :t)
     if d["time_direction"] == :forwards
+        if abs(t-t_stop) < 1e-15
+            # initialization
+            # currently only at the boundary
+            # reasonbaly the whole domain should be iterated through and assign to each location correct number of particles
+            p = d["initialize_particles"](d, p)
+        end
         while (t < (t_stop - 0.25 * Δt))
             #   (debuglevel >= 2) && println("... t=$(t) < $(t_stop)")
 
             # add particles to or remove them from the field at appropritate times
             # adding particles is achieved by activating them and modifying its coordinates
-            p, last_active_index = d["release_particles"](d, p, t)
-            for i in 1:last_active_index
+            p = d["release_particles"](d, p, t)
+            for i = d["first_active_index"]:d["first_inactive_index"]-1
             # for i = 1:n # old code iterates through all particles
-                s = @view p[:, i]
-                #forward!(f!, Δt, ∂s, s, t, i, d)  # old code without drift term g
-                forward!(f!, g!, Δt, ∂s, s, t, i, d)
+                if d["isactive_particles"][i]
+                    s = @view p[:, i]
+                    #forward!(f!, Δt, ∂s, s, t, i, d)  # old code without drift term g
+                    forward!(f!, g!, Δt, ∂s, s, t, i, d)
+                end
             end
             t += Δt
-
         end
     elseif d["time_direction"] == :backwards
         while (t > (t_stop + 0.25 * Δt))
@@ -260,11 +273,11 @@ function forward!(f!, Δt, ∂s, s, t, i, d)
 end
 
 function forward!(f!, g!, Δt, ∂s, s, t, i, d)
-    if !d["is_particles_active"][i] || !d["is_keep_these_particles"][i]
+    if !d["isactive_particles"][i]
         # check if the ith particle has been released or 
-        # if it moves out of the computation domain
+        # whether it moves out of the computation domain
         # Case 5: the particle is not yet released into the domain 
-        # Case 4: the particle is already outside, and only t needs updating
+        # Case 4: the particle is already outside, no need to update it 
         # do nothing
     else
         # preallocation
@@ -281,9 +294,9 @@ function forward!(f!, g!, Δt, ∂s, s, t, i, d)
         s_temp = s .+ δs
 
         # determine if the particle is inside the boundary
-        is_next_inside_domain = d["is_particle_in_domain"](s_temp)
+        is_next_inside_domain, is_apply_reflection = d["is_particle_in_domain"](s_temp)
 
-        if d["is_apply_cross_bc_test"] && d["is_keep_these_particles"][i]
+        if d["is_apply_cross_bc_test"] && d["isactive_particles"][i]
             # record all virtual steps in the single-particle test
             d["the_virtual_trajectory"] = hcat(d["the_virtual_trajectory"], reshape(s_temp, length(s_temp), 1))
         end
@@ -291,23 +304,22 @@ function forward!(f!, g!, Δt, ∂s, s, t, i, d)
         if is_next_inside_domain
             # Case 1: after virtual displacement, the particle is inside the domain
             s .= s .+ δs
-        elseif !d["is_cross_bc"] && d["is_keep_these_particles"][i]
+        elseif !d["is_cross_bc"] && is_apply_reflection
             # Case 2: after virtual displacement, the particle is outside the domain, so halve dt is needed
             # prevent the recursion algorithm with too many depths
             if Δt < d["dt"]/2^d["recursion_depth"]
             # Case 3: the dt is too small to be halved, so let the particle cross the boundary
-                s .= s .+ δs
-                d["is_keep_these_particles"][i] = false
+                d["isactive_particles"][i] = false
                 return nothing
             end             
             forward!(f!, g!, Δt/2, ∂s, s, t, i, d)
             forward!(f!, g!, Δt/2, ∂s, s, t, i, d)            
 
-        elseif d["is_keep_these_particles"][i]
-            # the particle leaves the boundary and stay there 
+        else
+            # case 6: the particles leaves at the Neumann boundary
+            # the particle will stay outside the domain
             s .= s .+ δs
-            d["is_keep_these_particles"][i] = false
-            println("The $(i)th-particle leaves the computation domain.")
+            d["isactive_particles"][i] = false
         end
     end
 end

@@ -1,4 +1,4 @@
-using CUDA, Test, BenchmarkTools
+using CUDA, Adapt, Test, BenchmarkTools
 using LinearAlgebra, SpecialFunctions
 using DelimitedFiles
 using Plots
@@ -191,4 +191,101 @@ function Kernel_Estimator(x, Locparticles, bandwidth)
         temp = p/(Nparticles*bandwidth^d)
     end
     return temp
+end
+
+# function new_Kernel_Estimator(xgrid, cgrid, Locparticle, bandwidth)
+#     # kernel methods
+#     function Gauss_kernel(u; d=1)
+#         return (2*pi)^(-0.5*d) * exp(-0.5*u*u)
+#     end
+
+#     function Epa_kernel(u; d=1)
+#         nu_d = 2*pi^(0.5*d) / d / gamma(0.5*d) 
+#         if u*u > 1
+#             return 0.
+#         else
+#             return 0.5 / nu_d * (d+2) * (1-u*u)
+#         end
+#     end
+
+#     #Kernel = Gauss_kernel
+#     Kernel = Epa_kernel
+#     #cgrid = CUDA.zeros(length(xgrid))
+#     d = 1
+#     for i in eachindex(xgrid)
+#         x = xgrid[i]
+#         if x<bandwidth
+#             #print("reflection applies.")
+#             u = (Locparticle - x)/bandwidth
+#             cgrid[i] += Kernel(u)
+#             # the kernel span outside the boundary; max when the sample is at the boundary
+#             # aka the deflection length
+#             d_reflection = bandwidth - (Locparticle-0) 
+#             if x<d_reflection
+#                 u_reflection = (Locparticle + x)/bandwidth
+#                 cgrid[i]+= Kernel(u_reflection)
+#             end
+#         elseif 1-x< bandwidth
+#             #print("reflection applies.")
+#             u = (Locparticle - x)/bandwidth
+#             cgrid[i] += Kernel(u)
+#             d_reflection = bandwidth-(1 -Locparticle)
+#             if 1-x<d_reflection
+#                 u_reflection = (2-x - Locparticle)/bandwidth
+#                 cgrid[i]+= Kernel(u_reflection)
+#             end
+#         else
+#             u = (Locparticle - x)/bandwidth
+#             cgrid[i]+= Kernel(u)
+#         end
+#     end
+#     return cgrid
+# end
+
+function new_Kernel_Estimator(x, Locparticle, bandwidth)
+    # kernel methods
+    function Gauss_kernel(u; d=1)
+        return (2*pi)^(-0.5*d) * exp(-0.5*u*u)
+    end
+
+    function Epa_kernel(u; d=1)
+        nu_d = 2*pi^(0.5*d) / d / gamma(0.5*d) 
+        if u*u > 1
+            return 0.
+        else
+            return 0.5 / nu_d * (d+2) * (1-u*u)
+        end
+    end
+
+    #Kernel = Gauss_kernel
+    Kernel = Epa_kernel
+    #cgrid = CUDA.zeros(length(xgrid))
+    d = 1
+    p = 0 
+
+    if x<bandwidth
+        #print("reflection applies.")
+        u = (Locparticle - x)/bandwidth
+        p += Kernel(u)
+        # the kernel span outside the boundary; max when the sample is at the boundary
+        # aka the deflection length
+        d_reflection = bandwidth - (Locparticle-0) 
+        if x<d_reflection
+            u_reflection = (Locparticle + x)/bandwidth
+            p += Kernel(u_reflection)
+        end
+    elseif 1-x< bandwidth
+        #print("reflection applies.")
+        u = (Locparticle - x)/bandwidth
+        p += Kernel(u)
+        d_reflection = bandwidth-(1 -Locparticle)
+        if 1-x<d_reflection
+            u_reflection = (2-x - Locparticle)/bandwidth
+            p += Kernel(u_reflection)
+        end
+    else
+        u = (Locparticle - x)/bandwidth
+        p += Kernel(u)
+    end
+    return p
 end
