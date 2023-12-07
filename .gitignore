@@ -7,3 +7,5 @@ deps/deps.jl
 *.nc
 *.zarr
 Manifest.toml
+*.tar
+*.tgz
