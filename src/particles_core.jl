@@ -87,9 +87,6 @@ function run_simulation(d)
     end
 
     # initialize outputs
-    if d["is_apply_cross_bc_test"] && (d["nparticles"]==1)
-        d["the_virtual_trajectory"] = reshape(d["particles"], length(d["particles"]), 1)
-    end
     target_times = Float64[]
     if d["plot_maps"]
         # init timing
@@ -150,6 +147,7 @@ function run_simulation(d)
 
     # simulate in pieces until next output-action
     for t_stop in target_times
+        p = d["particles"]
         t_abs = tref + Second(round(t))
         t_stop_abs = tref + Second(round(t_stop))
         if d["time_direction"] == :forwards
@@ -230,7 +228,12 @@ function simulate!(p, t, t_stop, d)
             # initialization
             # currently only at the boundary
             # reasonbaly the whole domain should be iterated through and assign to each location correct number of particles
-            p = d["initialize_particles"](d, p)
+            d["particles"] = d["initialize_particles"](d, p)
+            d["all_particles"] = push!(d["all_particles"],copy(d["particles"]))
+            if d["is_apply_cross_bc_test"] && (d["nparticles"]==1)
+                d["the_virtual_trajectory"] = reshape(d["particles"], length(d["particles"]), 1)
+            end
+            println("Particles initialization finish!")
         end
         while (t < (t_stop - 0.25 * Δt))
             #   (debuglevel >= 2) && println("... t=$(t) < $(t_stop)")

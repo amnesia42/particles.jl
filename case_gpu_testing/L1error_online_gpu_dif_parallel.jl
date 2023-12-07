@@ -9,10 +9,11 @@ using LegendrePolynomials
 kernel_type = "Epa" # "box", "Epa", "Gauss" if changed to "Gauss", remember to change in the Kernel_Estimator function in ConcentrationCalculationLibrary.jl
                     # This is a temporary solution because I don't know how to pass a static reference to the device memory. 
 scheme = "euler" # "euler", "m1", "heun","RK4" remember to change in the get_next_location function in ConcentrationCalculationLibrary.jl
+const grid_spacing = 1.0/50000 #h=0.00002, should match the default value used in the first function
 # This is a temporary solution because I don't know how to pass a static reference to the device memory. 
 
 include("ConcentrationCalculationLibrary.jl")
-function gpukernel_time_stepping(p, dt; h=0.0002)
+function gpukernel_time_stepping(p, dt; h=grid_spacing)
     index = blockDim().x * (blockIdx().x - 1) + threadIdx().x
     stride = blockDim().x * gridDim().x     
     for k=index:stride:length(p)
@@ -170,13 +171,17 @@ end
 
 
 # output to result
-fname=@sprintf("./diffusion/temp/L1error_scheme=%s_z0=%.2f_N=%d.txt", scheme, z0, N)
+fname=@sprintf("./case_gpu_testing/diffusion/temp/outputbw_231130/L1error_scheme=%s_z0=%.2f_N=%d_h=%.1e.txt", scheme, z0, N,grid_spacing)
 open(fname, "w") do io
     writedlm(io, error_output)
 end
 
-# output to result
-fname=@sprintf("./diffusion/temp/pdfoutput_scheme=%s_z0=%.2f_N=%d.txt", scheme, z0, N)
+fname=@sprintf("./case_gpu_testing/diffusion/temp/outputbw_231130/pdfoutput_scheme=%s_z0=%.2f_N=%d_h=%.1e.txt", scheme, z0, N, grid_spacing)
 open(fname, "w") do io
     writedlm(io, pdf_output)
+end
+
+fname=@sprintf("./case_gpu_testing/diffusion/temp/outputbw_231130/bwoutput_scheme=%s_z0=%.2f_N=%d_h=%.1e.txt", scheme, z0, N, grid_spacing)
+open(fname, "w") do io
+    writedlm(io, bandwidth_output)
 end
