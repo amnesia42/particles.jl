@@ -25,7 +25,7 @@ function dkdz_approx(z,h)
     end 
 end
 
-function get_next_location(p, dt; h=0.002)
+function get_next_location(p, dt; h=0.00002)
     # diffusion functions not in a hurry
     function k(z)
         # parabola diffusion
@@ -104,15 +104,26 @@ function get_next_location(p, dt; h=0.002)
         return 1.0/6*(K0+2*K1+2*K2+K3)*dt +1.0/6*(G0+2*G1+2*G2+G3)*dW
     end
 
-    #if scheme=="euler"
-    dp = get_Δx_euler(p)
-    #elseif scheme=="m1"
+    # if scheme=="euler"
+    #dp = get_Δx_euler(p)
+    # elseif scheme=="m1"
     #dp = get_Δx_m1(p)
-    #elseif scheme == "heun"
+    # elseif scheme == "heun"
     #dp = get_Δx_heun(p)
-    #elseif scheme == "RK4"
-    #dp = get_Δx_RK4(p)
-    #end
+    # elseif scheme == "RK4"
+    dp = get_Δx_RK4(p)
+    # end
+
+    # if scheme_index == 1
+    #     dp = get_Δx_euler(p)
+    # elseif scheme_index == 2
+    #     dp = get_Δx_m1(p)
+    # elseif scheme_index == 3
+    #     dp = get_Δx_heun(p)
+    # elseif scheme_index == 4
+    #     dp = get_Δx_RK4(p)
+    # end
+
     if p+dp>1 || p+dp<0
         p = get_next_location(p, 0.5*dt)
         p = get_next_location(p, 0.5*dt)
@@ -144,7 +155,7 @@ function Kernel_Estimator(x, Locparticles, bandwidth)
 
     function Epa_kernel(u; d=1)
         nu_d = 2*pi^(0.5*d) / d / gamma(0.5*d) 
-        if u*u > 1
+        if u*u >= 1
             return 0.
         else
             return 0.5 / nu_d * (d+2) * (1-u*u)
@@ -250,7 +261,7 @@ function new_Kernel_Estimator(x, Locparticle, bandwidth)
 
     function Epa_kernel(u; d=1)
         nu_d = 2*pi^(0.5*d) / d / gamma(0.5*d) 
-        if u*u > 1
+        if u*u >= 1
             return 0.
         else
             return 0.5 / nu_d * (d+2) * (1-u*u)

@@ -8,11 +8,15 @@ using LegendrePolynomials
 # Try to wrap this into a function that inputs a particle distribution and outs a concentration approximation.
 kernel_type = "Epa" # "box", "Epa", "Gauss" if changed to "Gauss", remember to change in the Kernel_Estimator function in ConcentrationCalculationLibrary.jl
                     # This is a temporary solution because I don't know how to pass a static reference to the device memory. 
-scheme = "euler" # "euler", "m1", "heun","RK4" remember to change in the get_next_location function in ConcentrationCalculationLibrary.jl
+const scheme = "m1" # "euler", "m1", "heun","RK4" remember to change in the get_next_location function in ConcentrationCalculationLibrary.jl
+scheme_list = ["euler", "m1", "heun","RK4"]
+const scheme_index = findfirst(x->x==scheme, scheme_list) # the index should match the scheme used here
+const grid_spacing = 2.0e-5 # value of h
+
 # This is a temporary solution because I don't know how to pass a static reference to the device memory. 
 
 include("ConcentrationCalculationLibrary.jl")
-function gpukernel_time_stepping(p, dt; h=0.002)
+function gpukernel_time_stepping(p, dt; h=0.00002)
     index = blockDim().x * (blockIdx().x - 1) + threadIdx().x
     stride = blockDim().x * gridDim().x     
     for k=index:stride:length(p)
@@ -81,7 +85,7 @@ function get_particles_snapshot(z0, N, scheme, dt, Tend, t_obs)
 end
 
 # concentration estimation parameter specification
-z0=0.5; N = 100000000;Tend = 0.216;scheme="euler"
+z0=0.5; N = 100000000;Tend = 0.216
 t_obs = [0.036, 0.072, 0.108, 0.144, 0.180, 0.216]
 #t_obs = 3e-3:3e-3:0.216
 dt_list = [3e-3,1e-3, 3e-4, 1e-4, 3e-5, 1e-5, 3e-6]
@@ -136,13 +140,18 @@ end
 
 
 # output to result
-fname=@sprintf("./diffusion/error/L1error_scheme=%s_z0=%.2f_N=%d.txt", scheme, z0, N)
+fname=@sprintf("case_gpu_testing/diffusion/error/231225/L1error_scheme=%s_z0=%.2f_N=%d_h=%.1e.txt", scheme, z0, N, grid_spacing)
 open(fname, "w") do io
     writedlm(io, error_output)
 end
 
 # output to result
-fname=@sprintf("./diffusion/error/pdfoutput_scheme=%s_z0=%.2f_N=%d.txt", scheme, z0, N)
+fname=@sprintf("case_gpu_testing/diffusion/error/231225/pdfoutput_scheme=%s_z0=%.2f_N=%d_h=%.1e.txt", scheme, z0, N, grid_spacing)
 open(fname, "w") do io
     writedlm(io, pdf_output)
+end
+
+fname=@sprintf("case_gpu_testing/diffusion/error/231225/bwoutput_scheme=%s_z0=%.2f_N=%d_h=%.1e.txt", scheme, z0, N, grid_spacing)
+open(fname, "w") do io
+    writedlm(io, bandwidth_output)
 end

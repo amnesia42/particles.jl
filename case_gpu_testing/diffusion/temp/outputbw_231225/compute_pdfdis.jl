@@ -1,10 +1,13 @@
 using DelimitedFiles, Printf, LegendrePolynomials
 using Plots
 
-z0=0.5; N = 1000;Tend = 0.216;scheme="m1";kernel_type="Epa"
+z0=0.5; N = 10000;Tend = 0.216;scheme="RK4";kernel_type="Epa"; h=2.0e-5
 t_obs = [0.036, 0.072, 0.108, 0.144, 0.180, 0.216]
-#t_obs = 3e-3:3e-3:0.216
-dt_list = [3e-3,1e-3, 3e-4, 1e-4, 3e-5, 1e-5, 3e-6]
+#dt_list = [3e-5]
+dt_list =[3e-3,1e-3, 3e-4,1e-4,3e-5]
+
+#dt_list = [3e-3,1e-3, 3e-4, 1e-4, 3e-5, 1e-5, 3e-6]
+
 zgrid = 0.0:0.02:1.0
 Nz = length(zgrid)
 TV = zeros(length(t_obs))
@@ -25,8 +28,8 @@ for j = 1:length(t_obs)
 end
 
 # collect the result
-dirname = "case_gpu_testing/diffusion/error/231225"
-fname=@sprintf("%s/pdfoutput_kernel=%s_scheme=%s_z0=%.2f_N=%d.txt", dirname, kernel_type,scheme, z0, N)
+dirname = "case_gpu_testing/diffusion/temp/outputbw_231225"
+fname=@sprintf("%s/pdfoutput_scheme=%s_z0=%.2f_N=%d_h=%.1e.txt", dirname, scheme, z0, N, h)
 pdfoutput = readdlm(fname,'\t',Float64,'\n')
 numdt = length(dt_list)
 numTobs = length(t_obs)
@@ -39,5 +42,5 @@ for i=1:numTobs
     plot!(pall,C[:,i], zgrid, xlim=(0.4,1.4),label="analy",linewidth=4,legnedfontsize=14,subplot=i)
     plot!(pall, subplot=i, xlabel="L1 error", ylabel="x",title="concentration distribution at t=$(t_obs[i])", titlefontsize=16,xguidefontsize=18, yguidefontsize=18)
 end
-figname = @sprintf("%s/pdf_distri_kernel=%s_scheme=%s_z0=%.2f_N=%d.png",dirname, kernel_type, scheme, z0, N)
+figname = @sprintf("%s/pdf_distri_scheme=%s_z0=%.2f_N=%d_h=%.1e.png",dirname, scheme, z0, N, h)
 savefig(pall,figname)

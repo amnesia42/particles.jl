@@ -17,3 +17,6 @@ Manifest.toml
 *.svg
 case_zunormm/ZUNORMM_map_fullgrid_v2.zarr.tar
 case_zunormm/ZUNORMM_map_fullgrid_v2.zarr.tgz
+*.txt
+*.tar
+*.tgz

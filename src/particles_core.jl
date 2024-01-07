@@ -221,13 +221,13 @@ function simulate!(p, t, t_stop, d)
     N_activeparts = count(d["isactive_particles"])
     println("Before this updating, the number of active particle is $(N_activeparts).")
     N_releaseparts = count(p[4,:] .> 1e-10) # count the number of particles that has been released
-    println("Before this updating, the number of released particles is $(N_releaseparts)")
+    println("Before this updating, the number of released particles is $(N_releaseparts). ")
+    println("The number of active particles and released particles immediately after initializing are different because the latter is determined through residence time greater than zero, so this involves a delay.")
     ∂s = @LArray zeros(length(variables)) (:x, :y, :z, :t)
     if d["time_direction"] == :forwards
         if abs(t-t_stop) < 1e-15
             # initialization
-            # currently only at the boundary
-            # reasonbaly the whole domain should be iterated through and assign to each location correct number of particles
+            # scan the whole domain and assign to each location correct number of particles
             d["particles"] = d["initialize_particles"](d, p)
             d["all_particles"] = push!(d["all_particles"],copy(d["particles"]))
             if d["is_apply_cross_bc_test"] && (d["nparticles"]==1)
@@ -240,7 +240,6 @@ function simulate!(p, t, t_stop, d)
 
             # add particles to or remove them from the field at appropritate times
             # adding particles is achieved by activating them and modifying its coordinates
-            p = d["release_particles"](d, p, t)
             for i = d["first_active_index"]:d["first_inactive_index"]-1
             # for i = 1:n # old code iterates through all particles
                 if d["isactive_particles"][i]
@@ -249,6 +248,7 @@ function simulate!(p, t, t_stop, d)
                     forward!(f!, g!, Δt, ∂s, s, t, i, d)
                 end
             end
+            p = d["release_particles"](d, p, t)
             t += Δt
         end
     elseif d["time_direction"] == :backwards

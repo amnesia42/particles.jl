@@ -29,5 +29,5 @@ for i =1:length(Nlist) - 1
     tg_text = @sprintf("%.3f", tg)
     annotate!(0.5*(Nlist[i]+Nlist[i+1]), 0.5*(L1errorlist[i]+L1errorlist[i+1]), tg_text)
 end
-plot!(p2, xlabel="N", ylabel=L"E|\hat{X}(T) - X(T)|", title="L1 error at T=$(Tend)", dpi=300)
+plot!(p2, xlabel=L"N_T", ylabel=L"E_s(T)", title="L1 error at T=$(Tend)", dpi=300, titlefontsize=18, xguidefontsize=18, yguidefontsize=18)
 savefig(p2, "./M1strongerror.png" )

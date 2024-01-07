@@ -1,8 +1,8 @@
-μ=1.0; σ=1.0; S0=1.0; # specify the parameteres of the GBM
+μ=1.0; σ=1.0; S0=1.0; # specify the parameteres of the equivalent GBM to obtain analytical solution
 Tend = 1
 # This calculates the L1 error in the strong sense of the geometric Brownian motion
 Nrep = 100000
-Nlist = [2^i for i=4:9]
+Nlist = [2^i for i=3:9]
 L1errorlist = zeros(length(Nlist))
 for i in eachindex(Nlist)
     N = Nlist[i]
@@ -40,5 +40,5 @@ for i =1:length(Nlist) - 1
     tg_text = @sprintf("%.3f", tg)
     annotate!(0.5*(Nlist[i]+Nlist[i+1]), 0.5*(L1errorlist[i]+L1errorlist[i+1]), tg_text)
 end
-plot!(p2, xlabel="N", ylabel=L"E|\hat{X}(T) - X(T)|", title="L1 error at T=$(Tend)")
+plot!(p2, xlabel=L"N_T", ylabel=L"E_s(T)", title="L1 error at T=$(Tend)", titlefontsize=18, xguidefontsize=18, yguidefontsize=18)
 savefig(p2, "./RK4strongerror.png" )

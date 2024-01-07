@@ -20,7 +20,7 @@ end
 
 p2 = plot(Nlist, L1errorlist,  xscale=:log10, yscale=:log10, minorgrid=true, label="", dpi=300)
 scatter!(Nlist, L1errorlist, label="L1 error")
-plot!(p2, xlabel="N", ylabel=L"E[|X(T)-̂\hat{X}(T)]", title="L1 error at T=$(Tend)")
+plot!(p2, xlabel=L"N_T", ylabel=L"E_s(T)", title="L1 error at T=$(Tend)", titlefontsize=18, xguidefontsize=18, yguidefontsize=18)
 # calculate the tangent of the curve
 # add the annotated absolute tangent value
 for i =1:length(Nlist) - 1

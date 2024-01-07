@@ -39,12 +39,14 @@ for j=1:numdt
     r1 = pdfoutput[j,:,:] - C
     r2 = sum(abs, r1, dims=1)
     #r2 = r2 ./ length(r2)
-    p = plot(t_obs, vec(r2), linecolor=:red, linewidth=3, label="global error", margin=10Plots.mm)
     # compute the local error at the boundary @ certain dt, t_obs
     r3 = abs.(pdfoutput[j,1,:] - C[1,:])
-    plot!(t_obs, vec(r3), linecolor=:blue, linewidth=3, label="boundary local error",xlim=(0,0.3), xlabel="t", ylabel="L1error", legend=:right, dpi=300)
+    p = plot(t_obs, vec(r2), linecolor=:red, linewidth=3, label="global error", margin=10Plots.mm)
+    plot!(t_obs, vec(r3), linecolor=:blue, linewidth=3, xlim=(0,0.3), label="local error", xlabel="t", ylabel="L1error", legend=:right, legenddpi=300,
+    xguidefontsize=16, yguidefontsize=16, titlefontsize=16)
     # plot the percentage of contribution
-    scatter!(twinx(), t_obs, vec(r3) ./ vec(r2) .* 100, linewidth=3, xlim=(0,0.3),ylim=(0,100), ylabel="percentage",label="pct.",title="dt=$(dt_list[j])",dpi=300)
+    scatter!(twinx(), t_obs, vec(r3) ./ vec(r2) .* 100, linewidth=3, xlim=(0,0.3),ylim=(0,100), ylabel="percentage",label="pct.",title="dt=$(dt_list[j])",
+            xguidefontsize=16, yguidefontsize=16,dpi=300)    
     #scatter!(twinx(), t_obs, vec(r3) ./ vec(r2) .* 100, linewidth=3, label="Local error percentage", xlim=(0,0.3),ylim=(0,100), ylabel="percentage",title="dt=$(dt_list[j])", legend= :outertop, dpi=300)
     # plot the ratio
     #plot!(twinx(), t_obs, vec(r3) ./ (vec(r2) ./ Nz), markershape= :circle,linewidth=3, xlim=(0,0.3),ylim=(0,50), ylabel="ratio",label="ratio",title="dt=$(dt_list[j])",dpi=300)

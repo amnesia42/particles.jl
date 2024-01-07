@@ -8,16 +8,18 @@ using LegendrePolynomials
 # Try to wrap this into a function that inputs a particle distribution and outs a concentration approximation.
 kernel_type = "Epa" # "box", "Epa", "Gauss" if changed to "Gauss", remember to change in the Kernel_Estimator function in ConcentrationCalculationLibrary.jl
                     # This is a temporary solution because I don't know how to pass a static reference to the device memory. 
-scheme = "euler" # "euler", "m1", "heun","RK4" remember to change in the get_next_location function in ConcentrationCalculationLibrary.jl
+const scheme = "RK4" # "euler", "m1", "heun","RK4" remember to change in the get_next_location function in ConcentrationCalculationLibrary.jl
+scheme_list = ["euler", "m1", "heun","RK4"]
+const scheme_index = findfirst(x->x==scheme, scheme_list) # the index should match the scheme used here
 const grid_spacing = 1.0/50000 #h=0.00002, should match the default value used in the first function
 # This is a temporary solution because I don't know how to pass a static reference to the device memory. 
 
 include("ConcentrationCalculationLibrary.jl")
-function gpukernel_time_stepping(p, dt; h=grid_spacing)
+function gpukernel_time_stepping(p, dt; h=0.00002)
     index = blockDim().x * (blockIdx().x - 1) + threadIdx().x
     stride = blockDim().x * gridDim().x     
     for k=index:stride:length(p)
-        @inbounds p[k] = get_next_location(p[index], dt[1]; h=h)
+        @inbounds p[k] = get_next_location(p[index], dt[1];h=h)
     end
     return nothing
 end
@@ -67,7 +69,7 @@ function new_gpu_compute_concentration_by_kernel(t,x_grid,Locparticles)
     x_delta = Locparticles .- x_avg
     std_sample = sqrt(1/(Nparticles - 1)* dot(x_delta, x_delta))
     bandwidth = std_sample * Nparticles^(-0.2)
-    @printf("Calculation of std_sample completed. std_sample=%.4f.\n",std_sample)
+    @printf("Calculation of std_sample completed. x_avg=%.4f, minx=%.8f, maxx=%.8f, std_sample=%.4f.\n",x_avg, minimum(Locparticles), maximum(Locparticles), std_sample)
     @printf("The bandwdith is %.4f\n",bandwidth)
 
     # use the kernel method to compute the PDF
@@ -78,7 +80,7 @@ function new_gpu_compute_concentration_by_kernel(t,x_grid,Locparticles)
     cu_pdf_grid = adapt(CuArray, pdf_grid)
     cu_Locparticles = adapt(CuArray, Locparticles)
     numthreads = 1024  # This can be changed to length of a 3D grid if necessary.
-    numblocks = ceil(Int, Nparticles/1024)               # temporarily
+    numblocks = ceil(Int, Nparticles/numthreads)               # temporarily
 
     # check the Kernel Estimator can be passes a bitstype variable
     # println(isa(new_Kernel_Estimator, Function))
@@ -91,7 +93,17 @@ function new_gpu_compute_concentration_by_kernel(t,x_grid,Locparticles)
         stride = blockDim().x * gridDim().x
         for j = index:stride:length(Locparticles)
             for i = 1:length(pdf_grid)
-                @inbounds CUDA.atomic_add!(pointer(pdf_grid,i), Kernel_Estimator(x_grid[i], Locparticles[j], bandwidth[1]))
+                # there are failed attemps dealing with atomic operations. 
+                # Now it is suggested to use a low-level interface with pointer, and convert the numerical value to supporting types
+                #CUDA.@cushow(Kernel_Estimator(x_grid[i], Locparticles[j], bandwidth[1]))
+                #@inbounds CUDA.@atomic pdf_grid[i] += Kernel_Estimator(x_grid[i], Locparticles[j], bandwidth[1]) # this does not require the use of pointers
+                
+                # for some unknown reasons, the kernel returns NaN from time to time at a really low frequency
+                # to avoid its inference, rule out these cases
+                temp = Float64(Kernel_Estimator(x_grid[i], Locparticles[j], bandwidth[1]))
+                if !isnan(temp)
+                    CUDA.atomic_add!(pointer(pdf_grid,Int(i)), temp)
+                end
             end
         end
         return nothing
@@ -128,11 +140,12 @@ function get_particles_snapshot(z0, N, scheme, dt, Tend, t_obs)
 end
 
 # concentration estimation parameter specification
-z0=0.5; N = 100000000;Tend = 0.216;scheme="euler"
+z0=0.5; Tend = 0.216; N = 100000 # specity the numerical scheme as constant
 t_obs = [0.036, 0.072, 0.108, 0.144, 0.180, 0.216]
 #t_obs = 3e-3:3e-3:0.216
-dt_list = [3e-3,1e-3, 3e-4, 1e-4, 3e-5, 1e-5, 3e-6]
-#t_obs = [0.036, 0.072, 0.108, 0.1728]
+dt_list =[3e-3,1e-3, 3e-4,1e-4,3e-5]
+#dt_list = [3e-3,1e-3, 3e-4, 1e-4, 3e-5, 1e-5, 3e-6]
+
 
 #dt_list = [3e-4,1e-4,3e-5,1e-5,3e-6]
 dx = 0.02
@@ -155,10 +168,16 @@ for j = 1:length(t_obs)
     end
 end
 
+
 for i=1:length(dt_list)
     dt=dt_list[i]
     pdf_times = zeros(length(xs), length(t_obs))
     @time data = get_particles_snapshot(z0, N, scheme, dt, Tend, t_obs)
+    fname=@sprintf("./case_gpu_testing/diffusion/temp/outputbw_231225/pLocation_output_scheme=%s_z0=%.2f_N=%d_h=%.1e_dt=%.1e.txt", scheme, z0, N,grid_spacing,dt)
+    open(fname, "w") do io
+        writedlm(io, data)
+    end
+
     for k = 1:length(t_obs)
         ti = t_obs[k]
         d = data[:, k]
@@ -169,19 +188,20 @@ for i=1:length(dt_list)
     error_output[i,:] = sum(abs, pdf_times - analpdf_times, dims=1)
 end
 
+# output to result
 
 # output to result
-fname=@sprintf("./case_gpu_testing/diffusion/temp/outputbw_231130/L1error_scheme=%s_z0=%.2f_N=%d_h=%.1e.txt", scheme, z0, N,grid_spacing)
+fname=@sprintf("./case_gpu_testing/diffusion/temp/outputbw_231225/L1error_scheme=%s_z0=%.2f_N=%d_h=%.1e.txt", scheme, z0, N,grid_spacing)
 open(fname, "w") do io
     writedlm(io, error_output)
 end
 
-fname=@sprintf("./case_gpu_testing/diffusion/temp/outputbw_231130/pdfoutput_scheme=%s_z0=%.2f_N=%d_h=%.1e.txt", scheme, z0, N, grid_spacing)
+fname=@sprintf("./case_gpu_testing/diffusion/temp/outputbw_231225/pdfoutput_scheme=%s_z0=%.2f_N=%d_h=%.1e.txt", scheme, z0, N, grid_spacing)
 open(fname, "w") do io
     writedlm(io, pdf_output)
 end
 
-fname=@sprintf("./case_gpu_testing/diffusion/temp/outputbw_231130/bwoutput_scheme=%s_z0=%.2f_N=%d_h=%.1e.txt", scheme, z0, N, grid_spacing)
+fname=@sprintf("./case_gpu_testing/diffusion/temp/outputbw_231225/bwoutput_scheme=%s_z0=%.2f_N=%d_h=%.1e.txt", scheme, z0, N, grid_spacing)
 open(fname, "w") do io
     writedlm(io, bandwidth_output)
 end
