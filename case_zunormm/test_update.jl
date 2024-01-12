@@ -66,23 +66,23 @@ t_step=2*3600.0 # inseconds
 t_stop=12*3600.0 # can be 12 hours
 
 # This is using the interpolation functions instead of plotting the data directly, which is much faster.
-# anim = @animate for t in range(t_start, stop = t_stop, step = t_step)
-#     if t%1200==0 print("t=$(t) ") end
-#     # grid for plotting only
-#     x_points = range(x_left,stop=x_right,length=100) #only show 100 points in x
-#     y_points = range(y_bot,stop=y_top,length=100)
-#     z        = -0.0
-#     #u_interp = [u(x,y_middle,z,t) for x in x_points, z in z_points] # x velocity
-#     h_interp = [h(x,y,z,t) for x in x_points, y in y_points] # water level
-#     s_interp = [s(x,y,z,t) for x in x_points, y in y_points] # salinity
-#     depth_interp = [depth(x,y,z,t) for x in x_points, y in y_points] # water depth
+anim = @animate for t in range(t_start, stop = t_stop, step = t_step)
+    if t%1200==0 print("t=$(t) ") end
+    # grid for plotting only
+    x_points = range(x_left,stop=x_right,length=100) #only show 100 points in x
+    y_points = range(y_bot,stop=y_top,length=100)
+    z        = -0.0
+    #u_interp = [u(x,y_middle,z,t) for x in x_points, z in z_points] # x velocity
+    h_interp = [h(x,y,z,t) for x in x_points, y in y_points] # water level
+    s_interp = [s(x,y,z,t) for x in x_points, y in y_points] # salinity
+    depth_interp = [depth(x,y,z,t) for x in x_points, y in y_points] # water depth
 
-#     l = @layout([a; b; c])
-#     p1=heatmap(x_points,y_points,h_interp',xlabel="x",ylabel="y",title="waterlevel at t=$(t/3600)h",clims=(-1.5,1.5))
-#     p2=heatmap(x_points,y_points,s_interp',xlabel="x",ylabel="y",title="salinity at t=$(t/3600)h",clims=(0,35))
-#     plot(p1,p2,p3,layout=l,size=(800,2400))
-# end
-# gif(anim, "./temp/rmm_test.gif", fps = 3)
+    l = @layout([a; b; c])
+    p1=heatmap(x_points,y_points,h_interp',xlabel="x",ylabel="y",title="waterlevel at t=$(t/3600)h",clims=(-1.5,1.5))
+    p2=heatmap(x_points,y_points,s_interp',xlabel="x",ylabel="y",title="salinity at t=$(t/3600)h",clims=(0,35))
+    plot(p1,p2,p3,layout=l,size=(800,2400))
+end
+gif(anim, "./temp/rmm_test.gif", fps = 3)
 
 # direct plot of surface salinity at first time step - faster and nicer
 x=Zarr_data.file.arrays["x_center"][:]
