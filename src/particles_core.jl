@@ -216,6 +216,7 @@ function simulate!(p, t, t_stop, d)
     f! = d["f"]
     # add a flow function g that accounts for the effect of particle drift due to diffusion
     g! = d["g"]
+    h! = d["h"]
     variables = d["variables"]
     (m, n) = size(p) # no variables x no particles
     N_activeparts = count(d["isactive_particles"])
@@ -245,7 +246,9 @@ function simulate!(p, t, t_stop, d)
                 if d["isactive_particles"][i]
                     s = @view p[:, i]
                     #forward!(f!, Δt, ∂s, s, t, i, d)  # old code without drift term g
-                    forward!(f!, g!, Δt, ∂s, s, t, i, d)
+                    #forward!(f!, g!, Δt, ∂s, s, t, i, d) # old code without Ito term h
+                    forward!(f!, g!, h!, Δt, ∂s, s, t, i, d) # old code without Ito term h
+
                 end
             end
             p = d["release_particles"](d, p, t)
@@ -293,7 +296,7 @@ function forward!(f!, g!, Δt, ∂s, s, t, i, d)
         # compute the deterministic and stochastic drift
         f!(∂s_d, s, t, i, d)
         g!(∂s_s, s, t, i, d)
-        δs = ∂s_d .* Δt .+ ∂s_s .* sqrt(Δt) .* randn(d["rng"])
+        δs = ∂s_d .* Δt .+ ∂s_s .* sqrt(Δt) .* randn(d["rng"], 4) # each direction corresponds to a random variable; 
         s_temp = s .+ δs
 
         # determine if the particle is inside the boundary
@@ -317,6 +320,61 @@ function forward!(f!, g!, Δt, ∂s, s, t, i, d)
             end             
             forward!(f!, g!, Δt/2, ∂s, s, t, i, d)
             forward!(f!, g!, Δt/2, ∂s, s, t, i, d)            
+
+        else
+            # case 6: the particles leaves at the Neumann boundary
+            # the particle will stay outside the domain
+            s .= s .+ δs
+            d["isactive_particles"][i] = false
+        end
+    end
+end
+
+function forward!(f!, g!, h!, Δt, ∂s, s, t, i, d)
+    if !d["isactive_particles"][i]
+        # check if the ith particle has been released or 
+        # whether it moves out of the computation domain
+        # Case 5: the particle is not yet released into the domain 
+        # Case 4: the particle is already outside, no need to update it 
+        # do nothing
+    else
+        # preallocation
+        variables = d["variables"]
+        δs = @LArray zeros(length(variables)) (:x, :y, :z, :t)
+        ∂s_d = @LArray zeros(length(variables)) (:x, :y, :z, :t)
+        ∂s_s = @LArray zeros(length(variables)) (:x, :y, :z, :t)
+        ∂s_add = @LArray zeros(length(variables)) (:x, :y, :z, :t)
+        s_temp = @LArray zeros(length(variables)) (:x, :y, :z, :t)
+
+        # compute the deterministic and stochastic drift
+        f!(∂s_d, s, t, i, d)
+        g!(∂s_s, s, t, i, d)
+        h!(∂s_add, s, t, i, d)
+        r = randn(d["rng"], 4)
+        δs = ∂s_d .* Δt .+ ∂s_s .* sqrt(Δt) .* r +  ∂s_add .*  Δt .* (r .* r .- 1) # each direction corresponds to a random variable; 
+        s_temp = s .+ δs
+
+        # determine if the particle is inside the boundary
+        is_next_inside_domain, is_apply_reflection = d["is_particle_in_domain"](s_temp)
+
+        if d["is_apply_cross_bc_test"] && d["isactive_particles"][i]
+            # record all virtual steps in the single-particle test
+            d["the_virtual_trajectory"] = hcat(d["the_virtual_trajectory"], reshape(s_temp, length(s_temp), 1))
+        end
+        
+        if is_next_inside_domain
+            # Case 1: after virtual displacement, the particle is inside the domain
+            s .= s .+ δs
+        elseif !d["is_cross_bc"] && is_apply_reflection
+            # Case 2: after virtual displacement, the particle is outside the domain, so halve dt is needed
+            # prevent the recursion algorithm with too many depths
+            if Δt < d["dt"]/2^d["recursion_depth"]
+            # Case 3: the dt is too small to be halved, so let the particle cross the boundary
+                d["isactive_particles"][i] = false
+                return nothing
+            end             
+            forward!(f!, g!, h!, Δt/2, ∂s, s, t, i, d)
+            forward!(f!, g!, h!, Δt/2, ∂s, s, t, i, d)            
 
         else
             # case 6: the particles leaves at the Neumann boundary
